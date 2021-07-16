@@ -81,11 +81,14 @@ final class SynchronousMethodHandler implements MethodHandler {
 
   @Override
   public Object invoke(Object[] argv) throws Throwable {
+    //根据参数生成请求模板
     RequestTemplate template = buildTemplateFromArgs.create(argv);
     Options options = findOptions(argv);
+    //重试次数
     Retryer retryer = this.retryer.clone();
     while (true) {
       try {
+        //执行请求
         return executeAndDecode(template, options);
       } catch (RetryableException e) {
         try {
@@ -106,7 +109,15 @@ final class SynchronousMethodHandler implements MethodHandler {
     }
   }
 
+  /**
+   *  *解码，执行请求
+   * @param template
+   * @param options
+   * @return
+   * @throws Throwable
+   */
   Object executeAndDecode(RequestTemplate template, Options options) throws Throwable {
+    //执行拦截器
     Request request = targetRequest(template);
 
     if (logLevel != Logger.Level.NONE) {
@@ -116,6 +127,7 @@ final class SynchronousMethodHandler implements MethodHandler {
     Response response;
     long start = System.nanoTime();
     try {
+      //通过 client 发起请求，获取返回参数
       response = client.execute(request, options);
       // ensure the request is set. TODO: remove in Feign 12
       response = response.toBuilder()
@@ -157,7 +169,9 @@ final class SynchronousMethodHandler implements MethodHandler {
   }
 
   Request targetRequest(RequestTemplate template) {
+    //遍历拦截器
     for (RequestInterceptor interceptor : requestInterceptors) {
+      //执行拦截器的apply方法
       interceptor.apply(template);
     }
     return target.apply(template);

@@ -46,25 +46,31 @@ public class ReflectiveFeign extends Feign {
   @SuppressWarnings("unchecked")
   @Override
   public <T> T newInstance(Target<T> target) {
+    //为每个方法创建一个SynchronousMethodHandler对象，并放在 Map 里面。
+    //targetToHandlersByName是构造器传入的ParseHandlersByName对象，根据target对象生成MethodHandler映射
     Map<String, MethodHandler> nameToHandler = targetToHandlersByName.apply(target);
     Map<Method, MethodHandler> methodToHandler = new LinkedHashMap<Method, MethodHandler>();
     List<DefaultMethodHandler> defaultMethodHandlers = new LinkedList<DefaultMethodHandler>();
-
+    //遍历接口所有方法，构建Method->MethodHandler的映射
     for (Method method : target.type().getMethods()) {
       if (method.getDeclaringClass() == Object.class) {
         continue;
       } else if (Util.isDefault(method)) {
+        //如果是 default 方法，说明已经有实现了，用 DefaultHandler接口default方法的Handler
         DefaultMethodHandler handler = new DefaultMethodHandler(method);
         defaultMethodHandlers.add(handler);
         methodToHandler.put(method, handler);
       } else {
+        //否则就用上面的 SynchronousMethodHandler
         methodToHandler.put(method, nameToHandler.get(Feign.configKey(target.type(), method)));
       }
     }
+    // 创建动态代理，factory 是 InvocationHandlerFactory.Default，创建出来的是 ReflectiveFeign.FeignInvocationHanlder，也就是说后续对方法的调用都会进入到该对象的 inovke 方法。
     InvocationHandler handler = factory.create(target, methodToHandler);
+    // 创建动态代理对象
     T proxy = (T) Proxy.newProxyInstance(target.type().getClassLoader(),
         new Class<?>[] {target.type()}, handler);
-
+    //将default方法直接绑定到动态代理上
     for (DefaultMethodHandler defaultMethodHandler : defaultMethodHandlers) {
       defaultMethodHandler.bindTo(proxy);
     }
@@ -147,7 +153,13 @@ public class ReflectiveFeign extends Feign {
       this.decoder = checkNotNull(decoder, "decoder");
     }
 
+    /**
+     * 根据feign客户端获取MethodHandler对象
+     * @param target
+     * @return
+     */
     public Map<String, MethodHandler> apply(Target target) {
+      //通过Contract解析接口方法，生成MethodMetadata
       List<MethodMetadata> metadata = contract.parseAndValidateMetadata(target.type());
       Map<String, MethodHandler> result = new LinkedHashMap<String, MethodHandler>();
       for (MethodMetadata md : metadata) {

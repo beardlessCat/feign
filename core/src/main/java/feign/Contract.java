@@ -80,10 +80,12 @@ public interface Contract {
       if (targetType.getInterfaces().length == 1) {
         processAnnotationOnClass(data, targetType.getInterfaces()[0]);
       }
+      //处理class是上的注释
       processAnnotationOnClass(data, targetType);
 
 
       for (final Annotation methodAnnotation : method.getAnnotations()) {
+        //处理方式上的注释
         processAnnotationOnMethod(data, methodAnnotation, method);
       }
       if (data.isIgnored()) {
@@ -100,6 +102,7 @@ public interface Contract {
       for (int i = 0; i < count; i++) {
         boolean isHttpAnnotation = false;
         if (parameterAnnotations[i] != null) {
+          //处理方法参数上的注释
           isHttpAnnotation = processAnnotationsOnParameter(data, parameterAnnotations[i], i);
         }
 
